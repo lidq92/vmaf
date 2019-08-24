@@ -1,5 +1,92 @@
 # Change Log
 
+## (3/1/2019) [1.3.14]
+
+**Fixed bugs:**
+- Fix VMAF value mismatch on 160x90 videos after optimization (#315).
+- Fix w10 error with using uninitialized offset_flag variable (#302).
+
+**New features:**
+- Add automated Windows builds with AddVeyor (#313).
+- Report aggregate CI scores and fix empty model name in log (#304).
+
+## (1/31/2019) [1.3.13]
+
+**New features:**
+- Optimized C code for speed. Running in multithreading mode, `vmafossexec` achieves ~40% run time reduction compared to the previous version.
+- Printed out individual vmaf bootstrap scores in text file from `vmafossexec`.
+- refactored windows solution (#283) (#284) (#285) (#291) (#298).
+
+## (12/17/2018) [1.3.11]
+
+**New features:**
+- Revise number of bootstrap models definition: model/vmaf_rb_v0.6.3/vmaf_rb_v0.6.3.pkl has 21 models (20 bootstrap models and one using the full data). From these 21 models, the 20 of them are same as v0.6.2, only added an additional bootstrap model.
+- Output the per bootstrap model predictions from wrapper/vmafossexec.
+- Print bootstrap individual scores in xml and json.
+- Add BD-rate calculator and update documentation.
+- Report aggregate PSNR, SSIM, and MS-SSIM scores.
+- Add sklearn linear regression class to TrainTestModel.
+- Enable BRISQUE feature in VMAF training with bootstrapping.
+- Add --save-plot option to command line tools.
+- Add ST-RREDOpt (time optimized), ST-MAD feature extractors, quality runners and unittestts. Refactor ST-RRED feature extractor. (#216)
+
+**Fixed bugs:**
+- Bug fixed. When start vmaf in multi-thread at the same time. (#239)
+- Fix name of min function in vmaf.h and vmaf.cpp. (#227)
+- Fix implicit declaration of functions (#225)
+
+## (9/13/2018) [1.3.10]
+
+**New features:**
+- Remove sureal as a submodule to vmaf. sureal is now available through pip install.
+
+## (8/7/2018) [1.3.9]
+
+**Fixed bugs:**
+- libvmaf: fix case where user defined read_frame() callback was being ignored.
+
+## (6/21/2018) [1.3.8]
+
+**Fixed bugs:**
+- Fix compute_vmaf boolean type issue (#178).
+
+## (6/12/2018) [1.3.7]
+
+**New features:**
+- Add the --ci option to calculate confidence intervals to predicted VMAF scores (run_vmaf, run_vmaf_in_batch, ffmpeg2vmaf, vmafossexec).
+- Update libvmaf version to 1.3.7 after compute_vmaf() interface change (added enable_conf_interval option).
+- Add new models: 1) model/vmaf_4k_v0.6.1.pkl for 4KTV viewing at distance 1.5H, 2) model/vmaf_rb_v0.6.2/vmaf_rb_v0.6.2.pkl for VMAF prediction with a confidence interval, 3) model/vmaf_4k_rb_v0.6.2/vmaf_4k_rb_v0.6.2.pkl for 4KTV viewing at distance 1.5H, with a confidence interval.
+
+## (6/4/2018) [1.3.6]
+
+**New features:**
+- Update libvmaf version to 1.3.6 (to make consistent with VDK version from now on) after compute_vmaf() interface change (added thread and subsample options).
+- Add the option to set the number of threads to use in vmafossexec.
+- Add the option to subsample frames to save computation in vmafossexec.
+
+## (5/23/2018) [1.3.5]
+
+**New features:**
+- Add multi-threading to vmafossexec.
+
+## (5/8/2018) [1.3.4]
+
+**Refactoring:**
+- Refactor mos out of vmaf repo; rename to sureal as submodule.
+- Refactor TrainTestModel to make predict() to output dictionary.
+- Refactor TrainTestModel.
+- Rename KFLK metric to AUC (Area Under the Curve) for better interpretability.
+
+**New features:**
+- Add bootstrapping to VMAF. Add two new classes BootstrapVmafQualityRunner and BaggingVmafQualityRunner
+- Add Resolving Power Performance Metric.
+- Add BRISQUE and NIQE feature extractors. Added two new classes BrisqueNorefFeatureExtractor and NiqeNorefFeatureExtractor. Add NiqeQualityRunner.
+
+**Fixed bugs:**
+- Add .gitattributes (#127). Force .pkl and .model files to retain LF line-ending. Required for use on Windows where model files would otherwise be checked out as CRLF which VMAF's parser doesn't handle.
+- Allow MinGW compilation of ptools (#133). ptools doesn't build on MinGW as *nix socket headers are included. This patch selects Windows headers for MinGW builds.
+- Update compute vmaf interface (#138). Update VMAF version in libvmaf.pc and etc. Catch logic error (resulted from wrong model file format) in compute_vmaf(). Use custom error code.
+
 ## (12/3/2017) [1.3.3]
 
 **Fixed bugs:**

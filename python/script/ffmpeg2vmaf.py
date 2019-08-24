@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+import matplotlib
+matplotlib.use('Agg')
+
 import sys
 import os
 
@@ -8,23 +11,28 @@ import numpy as np
 from vmaf.config import VmafConfig, DisplayConfig
 from vmaf.core.asset import Asset
 from vmaf.core.quality_runner import VmafQualityRunner
-from vmaf.core.quality_runner_extra import VmafQualityRunnerWithLocalExplainer
 from vmaf.tools.misc import get_file_name_without_extension, get_cmd_option, \
     cmd_option_exists
 from vmaf.tools.stats import ListStats
 
-__copyright__ = "Copyright 2016-2018, Netflix, Inc."
+__copyright__ = "Copyright 2016-2019, Netflix, Inc."
 __license__ = "Apache, Version 2.0"
 
 FMTS = ['yuv420p', 'yuv422p', 'yuv444p', 'yuv420p10le', 'yuv422p10le', 'yuv444p10le']
 OUT_FMTS = ['text (default)', 'xml', 'json']
 POOL_METHODS = ['mean', 'harmonic_mean', 'min', 'median', 'perc5', 'perc10', 'perc20']
 
+
 def print_usage():
-    print "usage: " + os.path.basename(sys.argv[0]) \
-          + " quality_width quality_height ref_path dis_path [--model model_path] [--out-fmt out_fmt] [--work-dir work_dir] [--phone-model] [--ref-fmt ref_fmt --ref-width ref_width --ref-height ref_height] [--dis-fmt dis_fmt --dis-width dis_width --dis-height dis_height]\n"
-    print "ref_fmt/dis_fmt:\n\t" + "\n\t".join(FMTS) + "\n"
-    print "out_fmt:\n\t" + "\n\t".join(OUT_FMTS) + "\n"
+    print("usage: " + os.path.basename(sys.argv[0]) \
+          + " quality_width quality_height ref_path dis_path [--model model_path] " \
+            "[--out-fmt out_fmt] [--work-dir work_dir] [--phone-model] [--ci] " \
+            "[--ref-fmt ref_fmt --ref-width ref_width --ref-height ref_height] " \
+            "[--dis-fmt dis_fmt --dis-width dis_width --dis-height dis_height] " \
+            "[--save-plot plot_dir]\n")
+    print("ref_fmt/dis_fmt:\n\t" + "\n\t".join(FMTS) + "\n")
+    print("out_fmt:\n\t" + "\n\t".join(OUT_FMTS) + "\n")
+
 
 def main():
     if len(sys.argv) < 5:
@@ -41,7 +49,7 @@ def main():
         return 2
 
     if q_width < 0 or q_height < 0:
-        print "quality_width and quality_height must be non-negative, but are {w} and {h}".format(w=q_width, h=q_height)
+        print("quality_width and quality_height must be non-negative, but are {w} and {h}".format(w=q_width, h=q_height))
         print_usage()
         return 2
 
@@ -58,7 +66,7 @@ def main():
     ref_fmt = get_cmd_option(sys.argv, 5, len(sys.argv), '--ref-fmt')
     if not (ref_fmt is None
             or ref_fmt in FMTS):
-        print '--ref-fmt can only have option among {}'.format(', '.join(FMTS))
+        print('--ref-fmt can only have option among {}'.format(', '.join(FMTS)))
 
     ref_width = get_cmd_option(sys.argv, 5, len(sys.argv), '--ref-width')
     ref_height = get_cmd_option(sys.argv, 5, len(sys.argv), '--ref-height')
@@ -68,19 +76,23 @@ def main():
     dis_fmt = get_cmd_option(sys.argv, 5, len(sys.argv), '--dis-fmt')
     if not (dis_fmt is None
             or dis_fmt in FMTS):
-        print '--dis-fmt can only have option among {}'.format(', '.join(FMTS))
+        print('--dis-fmt can only have option among {}'.format(', '.join(FMTS)))
 
     work_dir = get_cmd_option(sys.argv, 5, len(sys.argv), '--work-dir')
 
     pool_method = get_cmd_option(sys.argv, 5, len(sys.argv), '--pool')
     if not (pool_method is None
             or pool_method in POOL_METHODS):
-        print '--pool can only have option among {}'.format(', '.join(POOL_METHODS))
+        print('--pool can only have option among {}'.format(', '.join(POOL_METHODS)))
         return 2
 
     show_local_explanation = cmd_option_exists(sys.argv, 5, len(sys.argv), '--local-explain')
 
     phone_model = cmd_option_exists(sys.argv, 5, len(sys.argv), '--phone-model')
+
+    enable_conf_interval = cmd_option_exists(sys.argv, 5, len(sys.argv), '--ci')
+
+    save_plot_dir = get_cmd_option(sys.argv, 5, len(sys.argv), '--save-plot')
 
     if work_dir is None:
         work_dir = VmafConfig.workdir_path()
@@ -91,7 +103,7 @@ def main():
         asset_dict['ref_yuv_type'] = 'notyuv'
     else:
         if ref_width is None or ref_height is None:
-            print 'if --ref-fmt is specified, both --ref-width and --ref-height must be specified'
+            print('if --ref-fmt is specified, both --ref-width and --ref-height must be specified')
             return 2
         else:
             asset_dict['ref_yuv_type'] = ref_fmt
@@ -102,12 +114,16 @@ def main():
         asset_dict['dis_yuv_type'] = 'notyuv'
     else:
         if dis_width is None or dis_height is None:
-            print 'if --dis-fmt is specified, both --dis-width and --dis-height must be specified'
+            print('if --dis-fmt is specified, both --dis-width and --dis-height must be specified')
             return 2
         else:
             asset_dict['dis_yuv_type'] = dis_fmt
             asset_dict['dis_width'] = dis_width
             asset_dict['dis_height'] = dis_height
+
+    if show_local_explanation and enable_conf_interval:
+        print('cannot set both --local-explain and --ci flags')
+        return 2
 
     asset = Asset(dataset="cmd",
                   content_id=abs(hash(get_file_name_without_extension(ref_file))) % (10 ** 16),
@@ -119,10 +135,14 @@ def main():
                   )
     assets = [asset]
 
-    if not show_local_explanation:
-        runner_class = VmafQualityRunner
-    else:
+    if show_local_explanation:
+        from vmaf.core.quality_runner_extra import VmafQualityRunnerWithLocalExplainer
         runner_class = VmafQualityRunnerWithLocalExplainer
+    elif enable_conf_interval:
+        from vmaf.core.quality_runner import BootstrapVmafQualityRunner
+        runner_class = BootstrapVmafQualityRunner
+    else:
+        runner_class = VmafQualityRunner
 
     if model_path is None:
         optional_dict = None
@@ -164,19 +184,23 @@ def main():
 
     # output
     if out_fmt == 'xml':
-        print result.to_xml()
+        print(result.to_xml())
     elif out_fmt == 'json':
-        print result.to_json()
+        print(result.to_json())
     else: # None or 'text'
-        print str(result)
+        print(str(result))
 
     # local explanation
     if show_local_explanation:
-        import matplotlib.pyplot as plt
         runner.show_local_explanations([result])
-        DisplayConfig.show()
+
+        if save_plot_dir is None:
+            DisplayConfig.show()
+        else:
+            DisplayConfig.show(write_to_dir=save_plot_dir)
 
     return 0
+
 
 if __name__ == "__main__":
     ret = main()

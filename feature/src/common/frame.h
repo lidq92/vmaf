@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright 2016-2017 Netflix, Inc.
+ *  Copyright 2016-2019 Netflix, Inc.
  *
  *     Licensed under the Apache License, Version 2.0 (the "License");
  *     you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ struct data
     size_t offset;
     FILE *ref_rfile;
     FILE *dis_rfile;
+    int num_frames;
 };
 
 struct noref_data

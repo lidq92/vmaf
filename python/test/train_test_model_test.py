@@ -6,14 +6,14 @@ import numpy as np
 from vmaf.config import VmafConfig
 from vmaf.core.train_test_model import TrainTestModel, \
     LibsvmNusvrTrainTestModel, SklearnRandomForestTrainTestModel, \
-    MomentRandomForestTrainTestModel, SklearnExtraTreesTrainTestModel
+    MomentRandomForestTrainTestModel, SklearnExtraTreesTrainTestModel, SklearnLinearRegressionTrainTestModel
 from vmaf.core.executor import run_executors_in_parallel
 from vmaf.core.noref_feature_extractor import MomentNorefFeatureExtractor
 from vmaf.routine import read_dataset
 from vmaf.tools.misc import import_python_file
 from vmaf.core.raw_extractor import DisYUVRawVideoExtractor
 
-__copyright__ = "Copyright 2016-2018, Netflix, Inc."
+__copyright__ = "Copyright 2016-2019, Netflix, Inc."
 __license__ = "Apache, Version 2.0"
 
 class TrainTestModelTest(unittest.TestCase):
@@ -64,7 +64,7 @@ class TrainTestModelTest(unittest.TestCase):
 
     def test_train_save_load_predict(self):
 
-        print "test train, save, load and predict..."
+        print("test train, save, load and predict...")
 
         xs = SklearnRandomForestTrainTestModel.get_xs_from_results(self.features)
         ys = SklearnRandomForestTrainTestModel.get_ys_from_results(self.features)
@@ -83,7 +83,7 @@ class TrainTestModelTest(unittest.TestCase):
 
     def test_train_save_load_predict_libsvmnusvr(self):
 
-        print "test libsvmnusvr train, save, load and predict..."
+        print("test libsvmnusvr train, save, load and predict...")
 
         xs = LibsvmNusvrTrainTestModel.get_xs_from_results(self.features)
         ys = LibsvmNusvrTrainTestModel.get_ys_from_results(self.features)
@@ -107,7 +107,7 @@ class TrainTestModelTest(unittest.TestCase):
 
     def test_train_predict_libsvmnusvr(self):
 
-        print "test libsvmnusvr train and predict..."
+        print("test libsvmnusvr train and predict...")
 
         # libsvmnusvr is bit exact to nusvr
 
@@ -151,7 +151,7 @@ class TrainTestModelTest(unittest.TestCase):
 
     def test_train_predict_randomforest(self):
 
-        print "test random forest train and predict..."
+        print("test random forest train and predict...")
 
         # random forest don't need proper data normalization
 
@@ -193,9 +193,25 @@ class TrainTestModelTest(unittest.TestCase):
         result = model.evaluate(xs, ys)
         self.assertAlmostEquals(result['RMSE'], 0.051804171170643752, places=4)
 
+    def test_train_predict_linearregression(self):
+
+        print("test linear regression train and predict...")
+
+        # linear regression doesn't need proper data normalization
+
+        xs = SklearnLinearRegressionTrainTestModel.get_xs_from_results(self.features, [0, 1, 2, 3, 4, 5])
+        ys = SklearnLinearRegressionTrainTestModel.get_ys_from_results(self.features, [0, 1, 2, 3, 4, 5])
+        xys = SklearnLinearRegressionTrainTestModel.get_xys_from_results(self.features, [0, 1, 2, 3, 4, 5])
+
+        model = SklearnLinearRegressionTrainTestModel({'norm_type':'normalize'}, None)
+        model.train(xys)
+        result = model.evaluate(xs, ys)
+
+        self.assertAlmostEquals(result['RMSE'], 0.49489849608079006, places=4)
+
     def test_train_predict_extratrees(self):
 
-        print "test extra trees train and predict..."
+        print("test extra trees train and predict...")
 
         # extra trees don't need proper data normalization
 

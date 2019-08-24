@@ -6,6 +6,7 @@ __license__ = "Apache, Version 2.0"
 
 import os
 
+from vmaf import to_list
 from vmaf.core.mixin import WorkdirEnabled
 from vmaf.tools.misc import get_file_name_without_extension, \
     get_file_name_with_extension, get_unique_str_from_recursive_dict
@@ -65,6 +66,10 @@ class Asset(WorkdirEnabled):
         self._assert()
 
     def _assert(self):
+        # validate yuv types
+        assert self.ref_yuv_type in self.SUPPORTED_YUV_TYPES
+        assert self.dis_yuv_type in self.SUPPORTED_YUV_TYPES
+        assert self.workfile_yuv_type in self.SUPPORTED_YUV_TYPES
         # if YUV is notyuv, then ref/dis width and height should not be given,
         # since it must be encoded video and the information should be already
         # in included in the header of the video files
@@ -72,6 +77,17 @@ class Asset(WorkdirEnabled):
             assert self.ref_width_height is None, 'For ref_yuv_type nonyuv, ref_width_height must NOT be specified.'
         if self.dis_yuv_type == 'notyuv':
             assert self.dis_width_height is None, 'For dis_yuv_type nonyuv, dis_width_height must NOT be specified.'
+        # validate asset_dict
+        self._assert_asset_dict()
+
+    def _assert_asset_dict(self):
+        # perform necessary assertions on asset properties of asset dict
+        if 'fps' in self.asset_dict:
+            assert self.asset_dict['fps'] > 0.0, 'Frame rate has to be positive.'
+        if 'rebuf_indices' in self.asset_dict:
+            assert isinstance(self.asset_dict['rebuf_indices'], list), 'Rebuffering indices need to be in a list.'
+            # check for negative rebuffering indices
+            assert len(to_list(filter(lambda x: x < 0, self.asset_dict['rebuf_indices']))) == 0, 'All rebuffering indices have to be >= 0.'
 
     def copy(self, **kwargs):
         new_asset_dict = copy.deepcopy(self.asset_dict)
@@ -343,7 +359,21 @@ class Asset(WorkdirEnabled):
 
     @property
     def fps(self):
-        return self.asset_dict['fps'] if 'fps' in self.asset_dict else None
+        if 'fps' in self.asset_dict:
+            assert self.asset_dict['fps'] > 0.0, 'Frame rate has to be positive.'
+            return self.asset_dict['fps']
+        else:
+            return None
+
+    @property
+    def rebuf_indices(self):
+        if 'rebuf_indices' in self.asset_dict:
+            assert isinstance(self.asset_dict['rebuf_indices'], list), 'Rebuffering indices need to be in a list.'
+            # check for negative rebuffering indices
+            assert len(to_list(filter(lambda x: x < 0, self.asset_dict['rebuf_indices']))) == 0, 'All rebuffering indices have to be >= 0.'
+            return self.asset_dict['rebuf_indices']
+        else:
+            return None
 
     # ==== str ====
 
@@ -369,6 +399,16 @@ class Asset(WorkdirEnabled):
             start, end = self.ref_start_end_frame
             s += "_{start}to{end}".format(start=start, end=end)
 
+        if self.ref_crop_cmd is not None:
+            if s != "":
+                s += "_"
+            s += "crop{}".format(self.ref_crop_cmd)
+
+        if self.ref_pad_cmd is not None:
+            if s != "":
+                s += "_"
+            s += "pad{}".format(self.ref_pad_cmd)
+
         return s
 
     @property
@@ -392,6 +432,16 @@ class Asset(WorkdirEnabled):
         if self.dis_start_end_frame:
             start, end = self.dis_start_end_frame
             s += "_{start}to{end}".format(start=start, end=end)
+
+        if self.dis_crop_cmd is not None:
+            if s != "":
+                s += "_"
+            s += "crop{}".format(self.dis_crop_cmd)
+
+        if self.dis_pad_cmd is not None:
+            if s != "":
+                s += "_"
+            s += "pad{}".format(self.dis_pad_cmd)
 
         return s
 
@@ -417,16 +467,6 @@ class Asset(WorkdirEnabled):
             if s != "":
                 s += "_"
             s += "{}".format(self.resampling_type)
-
-        if self.crop_cmd is not None:
-            if s != "":
-                s += "_"
-            s += "crop{}".format(self.crop_cmd)
-
-        if self.pad_cmd is not None:
-            if s != "":
-                s += "_"
-            s += "pad{}".format(self.pad_cmd)
 
         return s
 
@@ -571,6 +611,23 @@ class Asset(WorkdirEnabled):
             return self.DEFAULT_YUV_TYPE
 
     @property
+    def workfile_yuv_type(self):
+        """
+        for notyuv assets, we want to allow the decoded yuv format to be set by the user
+        this is highly relevant to image decoding, where we would like to select yuv444p
+        this property tries to read workfile_yuv_type from asset_dict, if it is there it is set
+        else it default to default_yuv_type
+        """
+        supported_yuv_types = list(set(Asset.SUPPORTED_YUV_TYPES) - {'notyuv'})
+        if 'workfile_yuv_type' in self.asset_dict:
+            workfile_yuv_type = self.asset_dict['workfile_yuv_type']
+            assert workfile_yuv_type in supported_yuv_types, "Workfile YUV format {} is not valid, pick: {}".format(
+                workfile_yuv_type, str(supported_yuv_types))
+            return workfile_yuv_type
+        else:
+            return self.DEFAULT_YUV_TYPE
+
+    @property
     @deprecated
     def yuv_type(self):
         """ For backward-compatibility """
@@ -634,6 +691,43 @@ class Asset(WorkdirEnabled):
             return self.asset_dict['pad_cmd']
         else:
             return None
+
+    @property
+    def ref_crop_cmd(self):
+        if 'ref_crop_cmd' in self.asset_dict:
+            return self.asset_dict['ref_crop_cmd']
+        elif 'crop_cmd' in self.asset_dict:
+            return self.asset_dict['crop_cmd']
+        else:
+            return None
+
+    @property
+    def dis_crop_cmd(self):
+        if 'dis_crop_cmd' in self.asset_dict:
+            return self.asset_dict['dis_crop_cmd']
+        elif 'crop_cmd' in self.asset_dict:
+            return self.asset_dict['crop_cmd']
+        else:
+            return None
+
+    @property
+    def ref_pad_cmd(self):
+        if 'ref_pad_cmd' in self.asset_dict:
+            return self.asset_dict['ref_pad_cmd']
+        elif 'pad_cmd' in self.asset_dict:
+            return self.asset_dict['pad_cmd']
+        else:
+            return None
+
+    @property
+    def dis_pad_cmd(self):
+        if 'dis_pad_cmd' in self.asset_dict:
+            return self.asset_dict['dis_pad_cmd']
+        elif 'pad_cmd' in self.asset_dict:
+            return self.asset_dict['pad_cmd']
+        else:
+            return None
+
 
 class NorefAsset(Asset):
     """

@@ -1,14 +1,15 @@
-from vmaf.core.executor import run_executors_in_parallel
-
-__copyright__ = "Copyright 2016-2018, Netflix, Inc."
-__license__ = "Apache, Version 2.0"
+from __future__ import absolute_import
 
 import unittest
 
-from vmaf.config import VmafConfig
-from vmaf.core.asset import NorefAsset, Asset
+from vmaf.core.executor import run_executors_in_parallel
 from vmaf.core.noref_feature_extractor import MomentNorefFeatureExtractor, \
     NiqeNorefFeatureExtractor, BrisqueNorefFeatureExtractor
+
+from .testutil import set_default_576_324_videos_for_testing
+
+__copyright__ = "Copyright 2016-2019, Netflix, Inc."
+__license__ = "Apache, Version 2.0"
 
 
 class NorefFeatureExtractorTest(unittest.TestCase):
@@ -19,20 +20,8 @@ class NorefFeatureExtractorTest(unittest.TestCase):
             pass
 
     def test_noref_moment_fextractor(self):
-        print 'test on running Moment noref feature extractor on Assets...'
-        ref_path = VmafConfig.test_resource_path("yuv", "src01_hrc00_576x324.yuv")
-        dis_path = VmafConfig.test_resource_path("yuv", "src01_hrc01_576x324.yuv")
-        asset = Asset(dataset="test", content_id=0, asset_id=0,
-                      workdir_root=VmafConfig.workdir_path(),
-                      ref_path=ref_path,
-                      dis_path=dis_path,
-                      asset_dict={'width':576, 'height':324})
-
-        asset_original = Asset(dataset="test", content_id=0, asset_id=1,
-                      workdir_root=VmafConfig.workdir_path(),
-                      ref_path=ref_path,
-                      dis_path=ref_path,
-                      asset_dict={'width':576, 'height':324})
+        print('test on running Moment noref feature extractor on Assets...')
+        ref_path, dis_path, asset, asset_original = set_default_576_324_videos_for_testing()
 
         self.fextractor = MomentNorefFeatureExtractor(
             [asset, asset_original],
@@ -52,18 +41,8 @@ class NorefFeatureExtractorTest(unittest.TestCase):
         self.assertAlmostEqual(results[1]['Moment_noref_feature_var_score'], 1121.519917231207)
 
     def test_noref_moment_fextractor_with_noref_asset(self):
-        print 'test on running Moment noref feature extractor on NorefAssets...'
-        ref_path = VmafConfig.test_resource_path("yuv", "src01_hrc00_576x324.yuv")
-        dis_path = VmafConfig.test_resource_path("yuv", "src01_hrc01_576x324.yuv")
-        asset = NorefAsset(dataset="test", content_id=0, asset_id=0,
-                      workdir_root=VmafConfig.workdir_path(),
-                      dis_path=dis_path,
-                      asset_dict={'width':576, 'height':324})
-
-        asset_original = NorefAsset(dataset="test", content_id=0, asset_id=1,
-                      workdir_root=VmafConfig.workdir_path(),
-                      dis_path=ref_path,
-                      asset_dict={'width':576, 'height':324})
+        print('test on running Moment noref feature extractor on NorefAssets...')
+        ref_path, dis_path, asset, asset_original = set_default_576_324_videos_for_testing()
 
         self.fextractor = MomentNorefFeatureExtractor(
             [asset, asset_original],
@@ -83,18 +62,8 @@ class NorefFeatureExtractorTest(unittest.TestCase):
         self.assertAlmostEqual(results[1]['Moment_noref_feature_var_score'], 1121.519917231207)
 
     def test_run_noref_brisque_fextractor(self):
-        print 'test on running BRISQUE noref feature extractor...'
-        ref_path = VmafConfig.test_resource_path("yuv", "src01_hrc00_576x324.yuv")
-        dis_path = VmafConfig.test_resource_path("yuv", "src01_hrc01_576x324.yuv")
-        asset = NorefAsset(dataset="test", content_id=0, asset_id=1,
-                      workdir_root=VmafConfig.workdir_path(),
-                      dis_path=dis_path,
-                      asset_dict={'width':576, 'height':324,})
-
-        asset_original = NorefAsset(dataset="test", content_id=0, asset_id=2,
-                      workdir_root=VmafConfig.workdir_path(),
-                      dis_path=ref_path,
-                      asset_dict={'width':576, 'height':324,})
+        print('test on running BRISQUE noref feature extractor...')
+        ref_path, dis_path, asset, asset_original = set_default_576_324_videos_for_testing()
 
         self.fextractor = BrisqueNorefFeatureExtractor(
             [asset, asset_original],
@@ -115,18 +84,8 @@ class NorefFeatureExtractorTest(unittest.TestCase):
         self.assertAlmostEqual(results[1]['BRISQUE_noref_feature_N34_score'],     -0.0092448158862212092, places=4)
 
     def test_run_noref_niqe_fextractor(self):
-        print 'test on running NIQE noref feature extractor...'
-        ref_path = VmafConfig.test_resource_path("yuv", "src01_hrc00_576x324.yuv")
-        dis_path = VmafConfig.test_resource_path("yuv", "src01_hrc01_576x324.yuv")
-        asset = NorefAsset(dataset="test", content_id=0, asset_id=1,
-                      workdir_root=VmafConfig.workdir_path(),
-                      dis_path=dis_path,
-                      asset_dict={'width':576, 'height':324,})
-
-        asset_original = NorefAsset(dataset="test", content_id=0, asset_id=2,
-                      workdir_root=VmafConfig.workdir_path(),
-                      dis_path=ref_path,
-                      asset_dict={'width':576, 'height':324,})
+        print('test on running NIQE noref feature extractor...')
+        ref_path, dis_path, asset, asset_original = set_default_576_324_videos_for_testing()
 
         self.fextractor = NiqeNorefFeatureExtractor(
             [asset, asset_original],
@@ -149,18 +108,8 @@ class NorefFeatureExtractorTest(unittest.TestCase):
         self.assertAlmostEqual(results[1]['NIQE_noref_feature_blbr1_score'], 0.98723051960738684, places=4)
 
     def test_run_noref_niqe_fextractor_train(self):
-        print 'test on running NIQE noref feature extractor in train mode...'
-        ref_path = VmafConfig.test_resource_path("yuv", "src01_hrc00_576x324.yuv")
-        dis_path = VmafConfig.test_resource_path("yuv", "src01_hrc01_576x324.yuv")
-        asset = NorefAsset(dataset="test", content_id=0, asset_id=1,
-                      workdir_root=VmafConfig.workdir_path(),
-                      dis_path=dis_path,
-                      asset_dict={'width':576, 'height':324,})
-
-        asset_original = NorefAsset(dataset="test", content_id=0, asset_id=2,
-                      workdir_root=VmafConfig.workdir_path(),
-                      dis_path=ref_path,
-                      asset_dict={'width':576, 'height':324,})
+        print('test on running NIQE noref feature extractor in train mode...')
+        ref_path, dis_path, asset, asset_original = set_default_576_324_videos_for_testing()
 
         self.fextractor = NiqeNorefFeatureExtractor(
             [asset, asset_original],
@@ -185,18 +134,8 @@ class NorefFeatureExtractorTest(unittest.TestCase):
         self.assertAlmostEqual(results[1]['NIQE_noref_feature_blbr1_score'], 1.0508255408831713, places=4)
 
     def test_run_noref_niqe_fextractor_with_patch_size(self):
-        print 'test on running NIQE noref feature extractor with custom patch size...'
-        ref_path = VmafConfig.test_resource_path("yuv", "src01_hrc00_576x324.yuv")
-        dis_path = VmafConfig.test_resource_path("yuv", "src01_hrc01_576x324.yuv")
-        asset = NorefAsset(dataset="test", content_id=0, asset_id=1,
-                      workdir_root=VmafConfig.workdir_path(),
-                      dis_path=dis_path,
-                      asset_dict={'width':576, 'height':324})
-
-        asset_original = NorefAsset(dataset="test", content_id=0, asset_id=2,
-                      workdir_root=VmafConfig.workdir_path(),
-                      dis_path=ref_path,
-                      asset_dict={'width':576, 'height':324})
+        print('test on running NIQE noref feature extractor with custom patch size...')
+        ref_path, dis_path, asset, asset_original = set_default_576_324_videos_for_testing()
 
         self.fextractor = NiqeNorefFeatureExtractor(
             [asset, asset_original],
@@ -230,18 +169,8 @@ class ParallelNorefFeatureExtractorTest(unittest.TestCase):
             pass
 
     def test_run_parallel_moment_noref_fextractor(self):
-        print 'test on running Moment noref feature extractor on NorefAssets in parallel...'
-        ref_path = VmafConfig.test_resource_path("yuv", "src01_hrc00_576x324.yuv")
-        dis_path = VmafConfig.test_resource_path("yuv", "src01_hrc01_576x324.yuv")
-        asset = NorefAsset(dataset="test", content_id=0, asset_id=0,
-                      workdir_root=VmafConfig.workdir_path(),
-                      dis_path=dis_path,
-                      asset_dict={'width':576, 'height':324})
-
-        asset_original = NorefAsset(dataset="test", content_id=0, asset_id=1,
-                      workdir_root=VmafConfig.workdir_path(),
-                      dis_path=ref_path,
-                      asset_dict={'width':576, 'height':324})
+        print('test on running Moment noref feature extractor on NorefAssets in parallel...')
+        ref_path, dis_path, asset, asset_original = set_default_576_324_videos_for_testing()
 
         fextractor = MomentNorefFeatureExtractor(
             [asset, asset_original],
@@ -270,20 +199,8 @@ class ParallelNorefFeatureExtractorTestNew(unittest.TestCase):
             pass
 
     def test_noref_moment_fextractor(self):
-        print 'test on running Moment noref feature extractor on Assets...'
-        ref_path = VmafConfig.test_resource_path("yuv", "src01_hrc00_576x324.yuv")
-        dis_path = VmafConfig.test_resource_path("yuv", "src01_hrc01_576x324.yuv")
-        asset = Asset(dataset="test", content_id=0, asset_id=0,
-                      workdir_root=VmafConfig.workdir_path(),
-                      ref_path=ref_path,
-                      dis_path=dis_path,
-                      asset_dict={'width':576, 'height':324})
-
-        asset_original = Asset(dataset="test", content_id=0, asset_id=1,
-                      workdir_root=VmafConfig.workdir_path(),
-                      ref_path=ref_path,
-                      dis_path=ref_path,
-                      asset_dict={'width':576, 'height':324})
+        print('test on running Moment noref feature extractor on Assets...')
+        ref_path, dis_path, asset, asset_original = set_default_576_324_videos_for_testing()
 
         self.fextractor = MomentNorefFeatureExtractor(
             [asset, asset_original],
@@ -303,18 +220,8 @@ class ParallelNorefFeatureExtractorTestNew(unittest.TestCase):
         self.assertAlmostEqual(results[1]['Moment_noref_feature_var_score'], 1121.519917231207)
 
     def test_noref_moment_fextractor_with_noref_asset(self):
-        print 'test on running Moment noref feature extractor on NorefAssets...'
-        ref_path = VmafConfig.test_resource_path("yuv", "src01_hrc00_576x324.yuv")
-        dis_path = VmafConfig.test_resource_path("yuv", "src01_hrc01_576x324.yuv")
-        asset = NorefAsset(dataset="test", content_id=0, asset_id=0,
-                      workdir_root=VmafConfig.workdir_path(),
-                      dis_path=dis_path,
-                      asset_dict={'width':576, 'height':324})
-
-        asset_original = NorefAsset(dataset="test", content_id=0, asset_id=1,
-                      workdir_root=VmafConfig.workdir_path(),
-                      dis_path=ref_path,
-                      asset_dict={'width':576, 'height':324})
+        print('test on running Moment noref feature extractor on NorefAssets...')
+        ref_path, dis_path, asset, asset_original = set_default_576_324_videos_for_testing()
 
         self.fextractor = MomentNorefFeatureExtractor(
             [asset, asset_original],
@@ -334,18 +241,9 @@ class ParallelNorefFeatureExtractorTestNew(unittest.TestCase):
         self.assertAlmostEqual(results[1]['Moment_noref_feature_var_score'], 1121.519917231207)
 
     def test_run_parallel_brisque_noref_fextractor(self):
-        print 'test on running BRISQUE noref feature extractor on NorefAssets in parallel...'
-        ref_path = VmafConfig.test_resource_path("yuv", "src01_hrc00_576x324.yuv")
-        dis_path = VmafConfig.test_resource_path("yuv", "src01_hrc01_576x324.yuv")
-        asset = NorefAsset(dataset="test", content_id=0, asset_id=0,
-                      workdir_root=VmafConfig.workdir_path(),
-                      dis_path=dis_path,
-                      asset_dict={'width':576, 'height':324})
+        print('test on running BRISQUE noref feature extractor on NorefAssets in parallel...')
+        ref_path, dis_path, asset, asset_original = set_default_576_324_videos_for_testing()
 
-        asset_original = NorefAsset(dataset="test", content_id=0, asset_id=1,
-                      workdir_root=VmafConfig.workdir_path(),
-                      dis_path=ref_path,
-                      asset_dict={'width':576, 'height':324})
         self.fextractors, results = run_executors_in_parallel(
             BrisqueNorefFeatureExtractor,
             [asset, asset_original],

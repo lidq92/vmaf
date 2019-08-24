@@ -1,5 +1,4 @@
-__copyright__ = "Copyright 2016-2018, Netflix, Inc."
-__license__ = "Apache, Version 2.0"
+from __future__ import absolute_import
 
 import json
 import unittest
@@ -11,8 +10,14 @@ from vmaf.core.asset import Asset
 from vmaf.config import VmafConfig
 from vmaf.core.result import Result
 from vmaf.core.result_store import FileSystemResultStore
-from vmaf.core.quality_runner import VmafLegacyQualityRunner
+from vmaf.core.quality_runner import VmafLegacyQualityRunner, VmafQualityRunner
 from vmaf.tools.stats import ListStats
+
+from .testutil import set_default_576_324_videos_for_testing
+
+__copyright__ = "Copyright 2016-2019, Netflix, Inc."
+__license__ = "Apache, Version 2.0"
+
 
 class ResultTest(unittest.TestCase):
 
@@ -40,7 +45,7 @@ class ResultTest(unittest.TestCase):
 
     def test_todataframe_fromdataframe(self):
 
-        print 'test on result to/from dataframe...'
+        print('test on result to/from dataframe...')
         df = self.result.to_dataframe()
         df_vmaf = df.loc[df['scores_key'] == 'VMAF_legacy_scores']
         df_adm = df.loc[df['scores_key'] == 'VMAF_feature_adm_scores']
@@ -73,7 +78,7 @@ class ResultTest(unittest.TestCase):
         self.assertEquals(
             df.iloc[0]['asset'],
             '{"asset_dict": {"height": 1080, "use_path_as_workpath": 1, "width": 1920}, "asset_id": 0, "content_id": 0, "dataset": "test", "dis_path": "checkerboard_1920_1080_10_3_1_0.yuv", "ref_path": "checkerboard_1920_1080_10_3_0_0.yuv", "workdir": ""}') # noqa
-        self.assertEquals(df.iloc[0]['executor_id'], 'VMAF_legacy_VF0.2.4b-1.1')
+        self.assertEquals(df.iloc[0]['executor_id'], 'VMAF_legacy_VF0.2.4c-1.1')
 
         Result._assert_asset_dataframe(df)
 
@@ -83,7 +88,7 @@ class ResultTest(unittest.TestCase):
         self.assertFalse(self.result != recon_result)
 
     def test_to_score_str(self):
-        print 'test on result aggregate scores...'
+        print('test on result aggregate scores...')
         self.assertAlmostEquals(self.result.get_result('VMAF_legacy_score'), 40.421899030550769, places=4)
         self.assertAlmostEquals(self.result['VMAF_legacy_score'], 40.421899030550769, places=4)
         self.assertAlmostEquals(self.result.get_result('VMAF_feature_adm_score'), 0.78533833333333336, places=4)
@@ -110,13 +115,14 @@ class ResultTest(unittest.TestCase):
         self.result.set_score_aggregate_method(ListStats.total_variation)
         self.assertAlmostEquals(self.result.get_result('VMAF_legacy_score'), 6.5901873052628375, places=4)
         self.result.set_score_aggregate_method(partial(ListStats.moving_average, n=2))
-        self.assertItemsEqual(self.result.get_result('VMAF_legacy_score'),
+        self.assertEqual(list(self.result.get_result('VMAF_legacy_score')),
                               [42.86773029545774, 42.86773029545774, 42.86773029545774])
 
         with self.assertRaises(KeyError):
             self.result.get_result('VVMAF_legacy_score')
         with self.assertRaises(KeyError):
             self.result.get_result('VMAF_motion_scor')
+
 
 class ResultFormattingTest(unittest.TestCase):
 
@@ -225,7 +231,7 @@ class ResultStoreTest(unittest.TestCase):
         pass
 
     def test_file_system_result_store_save_load(self):
-        print 'test on file system result store save and load...'
+        print('test on file system result store save and load...')
         self.result_store = FileSystemResultStore(logger=None)
         asset = self.result.asset
         executor_id = self.result.executor_id
@@ -236,13 +242,110 @@ class ResultStoreTest(unittest.TestCase):
 
         self.assertEquals(self.result, loaded_result)
 
+
 class ResultStoreTestWithNone(unittest.TestCase):
 
     def test_load_result_with_none(self):
-        print 'test on file system result store load result with None...'
+        print('test on file system result store load result with None...')
         result = FileSystemResultStore.load_result(VmafConfig.test_resource_path('result_with_none.txt'))
         result.set_score_aggregate_method(ListStats.nonemean)
         self.assertAlmostEqual(result['STRRED_feature_srred_score'], 5829.2644469999996, places=4)
+
+
+class ResultAggregatingTest(unittest.TestCase):
+
+    def test_from_xml_from_json_and_aggregation(self):
+
+        print('test on running from_xml and from_json and aggregation...')
+        ref_path, dis_path, asset, asset_original = set_default_576_324_videos_for_testing()
+
+        asset_list = [asset, asset_original]
+
+        self.runner = VmafQualityRunner(
+            asset_list,
+            None, fifo_mode=True,
+            delete_workdir=True,
+            result_store=None,
+            optional_dict={
+                'model_filepath': VmafConfig.model_path("vmaf_v0.6.1.pkl"),
+            },
+            optional_dict2=None,
+        )
+        self.runner.run()
+
+        results = self.runner.results
+
+        xml_string_expected = results[0].to_xml()
+        xml_string_recon = Result.from_xml(xml_string_expected).to_xml()
+
+        json_string_expected = results[0].to_json()
+        json_string_recon = Result.from_json(json_string_expected).to_json()
+
+        assert xml_string_expected == xml_string_recon, "XML files do not match"
+        assert json_string_expected == json_string_recon, "JSON files do not match"
+
+        combined_result = Result.combine_result([results[0], results[1]])
+
+        # check that all keys are there
+        combined_result_keys = [key for key in combined_result.result_dict]
+        keys_0 = [key for key in results[0].result_dict]
+        keys_1 = [key for key in results[1].result_dict]
+        assert set(keys_0) == set(keys_1) == set(combined_result_keys)
+
+        # check that the dictionaries have been copied as expected
+        for key in combined_result_keys:
+            assert len(combined_result.result_dict[key]) == len(results[0].result_dict[key]) + len(results[1].result_dict[key])
+            assert combined_result.result_dict[key][0] == results[0].result_dict[key][0]
+            assert combined_result.result_dict[key][len(results[0].result_dict[key]) - 1] == results[0].result_dict[key][len(results[0].result_dict[key]) - 1]
+            assert combined_result.result_dict[key][len(results[0].result_dict[key])] == results[1].result_dict[key][0]
+            assert combined_result.result_dict[key][len(combined_result.result_dict[key]) - 1] == results[1].result_dict[key][len(results[1].result_dict[key]) - 1]
+
+
+class ScoreAggregationTest(unittest.TestCase):
+
+    def setUp(self):
+
+        ref_path = VmafConfig.test_resource_path("yuv", "checkerboard_1920_1080_10_3_0_0.yuv")
+        dis_path = VmafConfig.test_resource_path("yuv", "checkerboard_1920_1080_10_3_1_0.yuv")
+        asset = Asset(dataset="test", content_id=0, asset_id=0,
+                      workdir_root=VmafConfig.workdir_path(),
+                      ref_path=ref_path,
+                      dis_path=dis_path,
+                      asset_dict={'width':1920, 'height':1080})
+
+        self.runner = VmafQualityRunner(
+            [asset], None, fifo_mode=True,
+            delete_workdir=True, result_store=FileSystemResultStore(),
+        )
+        self.runner.run()
+
+        self.result = self.runner.results[0]
+
+        Nframes = len(self.result.result_dict['VMAF_scores'])
+        self.result.result_dict['VMAF_array_scores'] = self.result.result_dict['VMAF_scores'].reshape(Nframes, 1)
+        self.result.result_dict['VMAF_two_models_array_scores'] = np.vstack((self.result.result_dict['VMAF_scores'].reshape(1, Nframes),
+                                                                       self.result.result_dict['VMAF_scores'].reshape(1, Nframes)))
+        self.result.result_dict['VMAF_3D_array_scores'] = np.zeros((1, 1, 1))
+
+    def tearDown(self):
+        if hasattr(self, 'runner'):
+            self.runner.remove_results()
+
+    def test_to_score_str(self):
+        print('test on result aggregate scores...')
+        self.result.set_score_aggregate_method(np.mean)
+        # the following should give same value
+        self.assertAlmostEquals(self.result['VMAF_score'], 35.0661575902223, places=4)
+        # for a 2-D array, first dimension is # models and second is # frames
+        self.assertAlmostEquals(self.result['VMAF_two_models_array_score'][0], 35.0661575902223, places=4)
+        self.assertAlmostEquals(self.result['VMAF_two_models_array_score'][1], 35.0661575902223, places=4)
+        self.assertAlmostEquals(self.result['VMAF_array_score'][0], 22.97749190550349, places=4)
+        self.assertAlmostEquals(self.result['VMAF_array_score'][1], 44.79653061901706, places=4)
+        self.assertAlmostEquals(self.result['VMAF_array_score'][2], 37.424450246146364, places=4)
+        # check that a 3-D array will throw assertion, score aggregation accepts only up to 2-D
+        with self.assertRaises(AssertionError):
+            x = self.result['VMAF_3D_array_score']
+
 
 if __name__ == '__main__':
     unittest.main()

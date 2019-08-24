@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+import matplotlib
+matplotlib.use('Agg')
+
 import os
 import sys
 
@@ -10,19 +13,21 @@ from vmaf.tools.misc import import_python_file, cmd_option_exists, get_cmd_optio
 from vmaf.core.result_store import FileSystemResultStore
 from vmaf.routine import print_matplotlib_warning, train_test_vmaf_on_dataset
 from vmaf.tools.stats import ListStats
-from sureal.subjective_model import SubjectiveModel
 
-__copyright__ = "Copyright 2016-2018, Netflix, Inc."
+__copyright__ = "Copyright 2016-2019, Netflix, Inc."
 __license__ = "Apache, Version 2.0"
 
 POOL_METHODS = ['mean', 'harmonic_mean', 'min', 'median', 'perc5', 'perc10', 'perc20']
 
 SUBJECTIVE_MODELS = ['DMOS (default)', 'DMOS_MLE', 'MLE', 'MOS', 'SR_DMOS', 'SR_MOS', 'ZS_SR_DMOS', 'ZS_SR_MOS']
 
+
 def print_usage():
-    print "usage: " + os.path.basename(sys.argv[0]) + \
-        " train_dataset_filepath feature_param_filepath model_param_filepath output_model_filepath [--subj-model subjective_model] [--cache-result] [--parallelize]\n"
-    print "subjective_model:\n\t" + "\n\t".join(SUBJECTIVE_MODELS) + "\n"
+    print("usage: " + os.path.basename(sys.argv[0]) + \
+        " train_dataset_filepath feature_param_filepath model_param_filepath output_model_filepath " \
+        "[--subj-model subjective_model] [--cache-result] [--parallelize] [--save-plot plot_dir]\n")
+    print("subjective_model:\n\t" + "\n\t".join(SUBJECTIVE_MODELS) + "\n")
+
 
 def main():
 
@@ -44,7 +49,7 @@ def main():
         feature_param = import_python_file(feature_param_filepath)
         model_param = import_python_file(model_param_filepath)
     except Exception as e:
-        print "Error: " + str(e)
+        print("Error: %s" % e)
         return 1
 
     cache_result = cmd_option_exists(sys.argv, 3, len(sys.argv), '--cache-result')
@@ -54,19 +59,22 @@ def main():
     pool_method = get_cmd_option(sys.argv, 3, len(sys.argv), '--pool')
     if not (pool_method is None
             or pool_method in POOL_METHODS):
-        print '--pool can only have option among {}'.format(', '.join(POOL_METHODS))
+        print('--pool can only have option among {}'.format(', '.join(POOL_METHODS)))
         return 2
 
     subj_model = get_cmd_option(sys.argv, 3, len(sys.argv), '--subj-model')
 
     try:
         if subj_model is not None:
+            from sureal.subjective_model import SubjectiveModel
             subj_model_class = SubjectiveModel.find_subclass(subj_model)
         else:
             subj_model_class = None
     except Exception as e:
-        print "Error: " + str(e)
+        print("Error: %s" % e)
         return 1
+
+    save_plot_dir = get_cmd_option(sys.argv, 3, len(sys.argv), '--save-plot')
 
     if cache_result:
         result_store = FileSystemResultStore()
@@ -95,7 +103,7 @@ def main():
         if suppress_plot:
             raise AssertionError
 
-        import matplotlib.pyplot as plt
+        from vmaf import plt
         fig, ax = plt.subplots(figsize=(5, 5), nrows=1, ncols=1)
 
         train_test_vmaf_on_dataset(train_dataset=train_dataset, test_dataset=None,
@@ -116,7 +124,12 @@ def main():
         # ax.set_ylim([-10, 110])
 
         plt.tight_layout()
-        DisplayConfig.show()
+
+        if save_plot_dir is None:
+            DisplayConfig.show()
+        else:
+            DisplayConfig.show(write_to_dir=save_plot_dir)
+
     except ImportError:
         print_matplotlib_warning()
         train_test_vmaf_on_dataset(train_dataset=train_dataset, test_dataset=None,
@@ -142,6 +155,7 @@ def main():
                                    )
 
     return 0
+
 
 if __name__ == '__main__':
     ret = main()

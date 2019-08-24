@@ -1,4 +1,4 @@
-__copyright__ = "Copyright 2016-2018, Netflix, Inc."
+__copyright__ = "Copyright 2016-2019, Netflix, Inc."
 __license__ = "Apache, Version 2.0"
 
 import unittest
@@ -64,7 +64,7 @@ class AssetTest(unittest.TestCase):
                       asset_dict={"ref_width":1920, "ref_height":1080,
                                   "dis_width":720, "dis_height":480},)
         with self.assertRaises(AssertionError):
-            print asset.quality_width_height
+            print(asset.quality_width_height)
 
         asset = Asset(dataset="test", content_id=0, asset_id=0,
                       ref_path="", dis_path="",
@@ -421,7 +421,9 @@ class AssetTest(unittest.TestCase):
                                   'yuv_type':'yuv422p',
                                   'crop_cmd':'570:320:3:2'})
         self.assertEquals(asset.crop_cmd, '570:320:3:2')
-        self.assertEquals(str(asset), "test_0_0__720x480_yuv422p_vs__720x480_yuv422p_q_720x320_crop570:320:3:2")
+        self.assertEquals(asset.ref_crop_cmd, '570:320:3:2')
+        self.assertEquals(asset.dis_crop_cmd, '570:320:3:2')
+        self.assertEquals(str(asset), "test_0_0__720x480_yuv422p_crop570:320:3:2_vs__720x480_yuv422p_crop570:320:3:2_q_720x320")
 
         asset = Asset(dataset="test", content_id=0, asset_id=0,
                       ref_path="", dis_path="",
@@ -429,7 +431,31 @@ class AssetTest(unittest.TestCase):
                                   'quality_width':720, 'quality_height':320,
                                   'yuv_type':'yuv422p',})
         self.assertTrue(asset.crop_cmd is None)
+        self.assertTrue(asset.ref_crop_cmd is None)
+        self.assertTrue(asset.dis_crop_cmd is None)
         self.assertEquals(str(asset), "test_0_0__720x480_yuv422p_vs__720x480_yuv422p_q_720x320")
+
+    def test_ref_dis_crop_cmd(self):
+        asset = Asset(dataset="test", content_id=0, asset_id=0,
+                      ref_path="", dis_path="",
+                      asset_dict={'width':720, 'height':480,
+                                  'quality_width':720, 'quality_height':320,
+                                  'yuv_type':'yuv422p',
+                                  'ref_crop_cmd':'570:320:3:2', 'dis_crop_cmd':'571:320:3:2'})
+        self.assertTrue(asset.crop_cmd is None)
+        self.assertEquals(asset.ref_crop_cmd, '570:320:3:2')
+        self.assertEquals(asset.dis_crop_cmd, '571:320:3:2')
+        self.assertEquals(str(asset), "test_0_0__720x480_yuv422p_crop570:320:3:2_vs__720x480_yuv422p_crop571:320:3:2_q_720x320")
+
+        asset = Asset(dataset="test", content_id=0, asset_id=0,
+                      ref_path="", dis_path="",
+                      asset_dict={'width':720, 'height':480,
+                                  'quality_width':720, 'quality_height':320,
+                                  'yuv_type':'yuv422p', 'ref_crop_cmd':'570:320:3:2', 'crop_cmd':'572:320:3:2', })
+        self.assertEquals(asset.crop_cmd, '572:320:3:2')
+        self.assertEquals(asset.ref_crop_cmd, '570:320:3:2')
+        self.assertEquals(asset.dis_crop_cmd, '572:320:3:2')
+        self.assertEquals(str(asset), "test_0_0__720x480_yuv422p_crop570:320:3:2_vs__720x480_yuv422p_crop572:320:3:2_q_720x320")
 
     def test_pad_cmd(self):
         asset = Asset(dataset="test", content_id=0, asset_id=0,
@@ -439,7 +465,9 @@ class AssetTest(unittest.TestCase):
                                   'yuv_type':'yuv422p',
                                   'pad_cmd':'iw+6:ih+4:3:2'})
         self.assertEquals(asset.pad_cmd, 'iw+6:ih+4:3:2')
-        self.assertEquals(str(asset), "test_0_0__720x480_yuv422p_vs__720x480_yuv422p_q_720x320_padiw+6:ih+4:3:2")
+        self.assertEquals(asset.ref_pad_cmd, 'iw+6:ih+4:3:2')
+        self.assertEquals(asset.dis_pad_cmd, 'iw+6:ih+4:3:2')
+        self.assertEquals(str(asset), "test_0_0__720x480_yuv422p_padiw+6:ih+4:3:2_vs__720x480_yuv422p_padiw+6:ih+4:3:2_q_720x320")
 
         asset = Asset(dataset="test", content_id=0, asset_id=0,
                       ref_path="", dis_path="",
@@ -447,7 +475,32 @@ class AssetTest(unittest.TestCase):
                                   'quality_width':720, 'quality_height':320,
                                   'yuv_type':'yuv422p',})
         self.assertTrue(asset.pad_cmd is None)
+        self.assertTrue(asset.ref_pad_cmd is None)
+        self.assertTrue(asset.pad_cmd is None)
         self.assertEquals(str(asset), "test_0_0__720x480_yuv422p_vs__720x480_yuv422p_q_720x320")
+
+    def test_ref_dis_pad_cmd(self):
+        asset = Asset(dataset="test", content_id=0, asset_id=0,
+                      ref_path="", dis_path="",
+                      asset_dict={'width':720, 'height':480,
+                                  'quality_width':720, 'quality_height':320,
+                                  'yuv_type':'yuv422p',
+                                  'ref_pad_cmd':'iw+6:ih+4:3:2'})
+        self.assertIsNone(asset.pad_cmd)
+        self.assertEquals(asset.ref_pad_cmd, 'iw+6:ih+4:3:2')
+        self.assertIsNone(asset.dis_pad_cmd)
+        self.assertEquals(str(asset), "test_0_0__720x480_yuv422p_padiw+6:ih+4:3:2_vs__720x480_yuv422p_q_720x320")
+
+        asset = Asset(dataset="test", content_id=0, asset_id=0,
+                      ref_path="", dis_path="",
+                      asset_dict={'width':720, 'height':480,
+                                  'quality_width':720, 'quality_height':320,
+                                  'yuv_type':'yuv422p',
+                                  'ref_pad_cmd':'iw+6:ih+4:3:2', 'dis_pad_cmd':'iw+6:ih+4:3:3'})
+        self.assertIsNone(asset.pad_cmd)
+        self.assertEquals(asset.ref_pad_cmd, 'iw+6:ih+4:3:2')
+        self.assertEquals(asset.dis_pad_cmd, 'iw+6:ih+4:3:3')
+        self.assertEquals(str(asset), "test_0_0__720x480_yuv422p_padiw+6:ih+4:3:2_vs__720x480_yuv422p_padiw+6:ih+4:3:3_q_720x320")
 
     def test_notyuv(self):
         with self.assertRaises(AssertionError):
@@ -475,6 +528,22 @@ class AssetTest(unittest.TestCase):
                               'dis_width': 720, 'dis_height': 480,
                           })
 
+        with self.assertRaises(AssertionError):
+            asset = Asset(dataset="test", content_id=0, asset_id=0,
+                          ref_path="", dis_path="",
+                          asset_dict={
+                              'yuv_type': 'notyuv',
+                              'workfile_yuv_type': 'yuv4444p'
+                          })
+
+        asset = Asset(dataset="test", content_id=0, asset_id=0,
+                      ref_path="", dis_path="",
+                      asset_dict={
+                          'yuv_type': 'notyuv',
+                          'workfile_yuv_type': 'yuv422p'
+                      })
+        self.assertEquals(asset.workfile_yuv_type, 'yuv422p')
+
         asset = Asset(dataset="test", content_id=0, asset_id=0,
                       ref_path="refvideo", dis_path="disvideo",
                       asset_dict={
@@ -491,6 +560,23 @@ class AssetTest(unittest.TestCase):
                       })
         self.assertEquals(asset.quality_width_height, (720, 480))
         self.assertEquals(str(asset), "test_0_0_refvideo_notyuv_vs_disvideo_notyuv_q_720x480")
+
+    def test_notyuv_noref(self):
+        with self.assertRaises(AssertionError):
+            asset = NorefAsset(dataset="test", content_id=0, asset_id=0,
+                          dis_path="",
+                          asset_dict={
+                              'yuv_type': 'notyuv',
+                              'workfile_yuv_type': 'yuv4444p'
+                              })
+
+        asset = NorefAsset(dataset="test", content_id=0, asset_id=0,
+                      dis_path="",
+                      asset_dict={
+                          'yuv_type': 'notyuv',
+                          'workfile_yuv_type': 'yuv422p'
+                      })
+        self.assertEquals(asset.workfile_yuv_type, 'yuv422p')
 
     def test_copy(self):
         asset = Asset(dataset="test", content_id=0, asset_id=0,
@@ -632,6 +718,7 @@ class AssetTest(unittest.TestCase):
         self.assertEquals(asset.groundtruth, 91.0)
         self.assertEquals(asset.groundtruth_std, 4.5)
         self.assertEquals(asset.raw_groundtruth, [90.0, 92.0])
+
 
 if __name__ == '__main__':
     unittest.main()

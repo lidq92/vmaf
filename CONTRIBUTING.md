@@ -8,7 +8,7 @@ By contributing your code, you agree to license your contribution under the term
 
 ```
 /**
- * Copyright 2016-2017 the original author or authors.
+ * Copyright 2016-2019 the original author or authors.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ Files in the repository follow the structure below:
 
 The core class architecture can be depicted in the diagram below:
 
-![UML](/resource/images/uml.png)
+![UML](resource/images/uml.png)
 
 #### Asset
 
@@ -146,7 +146,7 @@ For this type of subclassing, refer to the example of LibsvmnusvrTrainTestModel.
 
 There are two ways to create a derived class of QualityRunner:
 
-The first way is to call a command-line exectuable directly, very similar to what FeatureExtractor does. A derived class must:
+The first way is to call a command-line executable directly, very similar to what FeatureExtractor does. A derived class must:
     
   - Override *TYPE* and *VERSION* fields.
   - Override *_generate_result(self, asset)*, which call a command-line executable and generate quality scores in a log file.

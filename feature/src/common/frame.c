@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright 2016-2017 Netflix, Inc.
+ *  Copyright 2016-2019 Netflix, Inc.
  *
  *     Licensed under the Apache License, Version 2.0 (the "License");
  *     you may not use this file except in compliance with the License.
@@ -17,11 +17,14 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include "file_io.h"
 #include "frame.h"
 
 #define read_image_b       read_image_b2s
 #define read_image_w       read_image_w2s
+
+static int completed_frames = 0;
 
 int read_frame(float *ref_data, float *dis_data, float *temp_data, int stride_byte, void *s)
 {
@@ -122,6 +125,8 @@ int read_frame(float *ref_data, float *dis_data, float *temp_data, int stride_by
         fprintf(stderr, "unknown format %s.\n", fmt);
         goto fail_or_end;
     }
+
+    fprintf(stderr, "Frame: %d/%d\r", completed_frames++, user_data->num_frames);
 
 
 fail_or_end:

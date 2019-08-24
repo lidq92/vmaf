@@ -13,20 +13,22 @@ from vmaf.core.quality_runner import VmafQualityRunner
 from vmaf.tools.misc import cmd_option_exists, get_cmd_option
 from vmaf.tools.stats import ListStats
 
-__copyright__ = "Copyright 2016-2018, Netflix, Inc."
+__copyright__ = "Copyright 2016-2019, Netflix, Inc."
 __license__ = "Apache, Version 2.0"
 
 FMTS = ['yuv420p', 'yuv422p', 'yuv444p', 'yuv420p10le', 'yuv422p10le', 'yuv444p10le']
 OUT_FMTS = ['text (default)', 'xml', 'json']
 POOL_METHODS = ['mean', 'harmonic_mean', 'min', 'median', 'perc5', 'perc10', 'perc20']
 
+
 def print_usage():
-    print "usage: " + os.path.basename(sys.argv[0]) + \
-          " input_file [--model model_path] [--out-fmt out_fmt] [--parallelize] [--phone-model]\n"
-    print "out_fmt:\n\t" + "\n\t".join(OUT_FMTS) + "\n"
-    print "input_file contains lines of:"
-    print "\tfmt width height ref_path dis_path\\n"
-    print "fmt:\n\t" + "\n\t".join(FMTS) + "\n"
+    print("usage: " + os.path.basename(sys.argv[0]) + \
+          " input_file [--model model_path] [--out-fmt out_fmt] [--parallelize] [--phone-model] [--ci]\n")
+    print("out_fmt:\n\t" + "\n\t".join(OUT_FMTS) + "\n")
+    print("input_file contains lines of:")
+    print("\tfmt width height ref_path dis_path\\n")
+    print("fmt:\n\t" + "\n\t".join(FMTS) + "\n")
+
 
 def main():
     if len(sys.argv) < 2:
@@ -48,12 +50,14 @@ def main():
     pool_method = get_cmd_option(sys.argv, 2, len(sys.argv), '--pool')
     if not (pool_method is None
             or pool_method in POOL_METHODS):
-        print '--pool can only have option among {}'.format(', '.join(POOL_METHODS))
+        print('--pool can only have option among {}'.format(', '.join(POOL_METHODS)))
         return 2
 
     parallelize = cmd_option_exists(sys.argv, 2, len(sys.argv), '--parallelize')
 
     phone_model = cmd_option_exists(sys.argv, 2, len(sys.argv), '--phone-model')
+
+    enable_conf_interval = cmd_option_exists(sys.argv, 2, len(sys.argv), '--ci')
 
     assets = []
     line_idx = 0
@@ -63,7 +67,7 @@ def main():
             # match comment
             mo = re.match(r"^#", line)
             if mo:
-                print "Skip commented line: {}".format(line)
+                print("Skip commented line: {}".format(line))
                 continue
 
             # match whitespace
@@ -74,7 +78,7 @@ def main():
             # example: yuv420p 576 324 ref.yuv dis.yuv
             mo = re.match(r"([\S]+) ([0-9]+) ([0-9]+) ([\S]+) ([\S]+)", line)
             if not mo or mo.group(1) not in FMTS:
-                print "Unknown format: {}".format(line)
+                print("Unknown format: {}".format(line))
                 print_usage()
                 return 1
 
@@ -95,7 +99,11 @@ def main():
             assets.append(asset)
             line_idx += 1
 
-    runner_class = VmafQualityRunner
+    if enable_conf_interval:
+        from vmaf.core.quality_runner import BootstrapVmafQualityRunner
+        runner_class = BootstrapVmafQualityRunner
+    else:
+        runner_class = VmafQualityRunner
 
     if model_path is None:
         optional_dict = None
@@ -138,16 +146,17 @@ def main():
             pass
 
         if out_fmt == 'xml':
-            print result.to_xml()
+            print(result.to_xml())
         elif out_fmt == 'json':
-            print result.to_json()
-        else: # None or 'json'
-            print '============================'
-            print 'Asset {asset_id}:'.format(asset_id=result.asset.asset_id)
-            print '============================'
-            print str(result)
+            print(result.to_json())
+        else:  # None or 'json'
+            print('============================')
+            print('Asset {asset_id}:'.format(asset_id=result.asset.asset_id))
+            print('============================')
+            print(result)
 
     return 0
+
 
 if __name__ == "__main__":
     ret = main()

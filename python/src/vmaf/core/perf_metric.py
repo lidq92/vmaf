@@ -5,6 +5,7 @@ import scipy.stats
 import scipy.special
 import scipy.interpolate
 
+from vmaf import to_list
 from vmaf.core.mixin import TypeVersionEnabled
 from vmaf.tools.misc import empty_object, indices
 from vmaf.tools.sigproc import fastDeLong, calpvalue, significanceHM, \
@@ -12,6 +13,7 @@ from vmaf.tools.sigproc import fastDeLong, calpvalue, significanceHM, \
 
 __copyright__ = "Copyright 2016-2018, Netflix, Inc."
 __license__ = "Apache, Version 2.0"
+
 
 class PerfMetric(TypeVersionEnabled):
 
@@ -41,7 +43,7 @@ class PerfMetric(TypeVersionEnabled):
         self._assert_args()
 
     def _assert_args(self):
-        assert len(self.groundtruths) == len(self.predictions)
+        assert len(self.groundtruths) == len(self.predictions), 'The lengths of groundtruth labels and predictions do not match.'
 
     def evaluate(self, **kwargs):
         """
@@ -49,8 +51,9 @@ class PerfMetric(TypeVersionEnabled):
         """
         groundtruths, predictions = self._preprocess(self.groundtruths, self.predictions, **kwargs)
         result = self._evaluate(groundtruths, predictions, **kwargs)
-        assert 'score' in result
+        assert 'score' in result, 'Score does not exist in result.'
         return result
+
 
 class RawScorePerfMetric(PerfMetric):
     """
@@ -63,6 +66,7 @@ class RawScorePerfMetric(PerfMetric):
         # require the raw scores to be more than 1
         for groundtruth in self.groundtruths:
             assert hasattr(groundtruth, '__len__') and len(groundtruth) > 1
+
 
 class AucPerfMetric(RawScorePerfMetric):
     """
@@ -346,6 +350,7 @@ class AucPerfMetric(RawScorePerfMetric):
 
         return result
 
+
 class ResolvingPowerPerfMetric(RawScorePerfMetric):
     """
     The method is described in the paper:
@@ -424,7 +429,7 @@ class ResolvingPowerPerfMetric(RawScorePerfMetric):
         deg_of_freedom = kwargs['ddof'] if 'ddof' in kwargs else 0
 
         vqm = np.array(predictions)
-        num_viewers = np.array(map(lambda groundtruth: len(groundtruth), groundtruths))
+        num_viewers = np.array(to_list(map(lambda groundtruth: len(groundtruth), groundtruths)))
         mos = np.mean(groundtruths, axis=1)
         std = np.std(groundtruths, axis=1, ddof=deg_of_freedom)
 
@@ -518,7 +523,7 @@ class ResolvingPowerPerfMetric(RawScorePerfMetric):
         for i in range(0, len_centers):
             in_bin = indices(delta_vqm, lambda x:low_limits[i] <= x and x < high_limits[i])
             mean_cdf_z_vqm[i] = np.mean(cdf_z_vqm[in_bin])
-        centers__mean_cdf_z_vqm = filter(lambda (x,y): not np.isnan(y), zip(centers, mean_cdf_z_vqm))
+        centers__mean_cdf_z_vqm = filter(lambda p: not np.isnan(p[1]), zip(centers, mean_cdf_z_vqm))
         centers, mean_cdf_z_vqm = zip(*centers__mean_cdf_z_vqm)
 
         # # % % Optional code to plot resolving power curve.
@@ -591,6 +596,7 @@ class ResolvingPowerPerfMetric(RawScorePerfMetric):
         result['score'] = res_pow_95
         return result
 
+
 class AggrScorePerfMetric(PerfMetric):
     """
     Groundtruth is a list of aggregate scores (list of real numbers)
@@ -623,9 +629,9 @@ class AggrScorePerfMetric(PerfMetric):
         aggre_method = kwargs['aggr_method'] if 'aggr_method' in kwargs else np.mean
         enable_mapping = kwargs['enable_mapping'] if 'enable_mapping' in kwargs else False
 
-        groundtruths_ = map(
+        groundtruths_ = to_list(map(
             lambda x: aggre_method(x) if hasattr(x, '__len__') else x,
-            groundtruths)
+            groundtruths))
 
         if enable_mapping:
             predictions_ = cls.sigmoid_adjust(predictions, groundtruths_)
@@ -633,6 +639,7 @@ class AggrScorePerfMetric(PerfMetric):
             predictions_ = predictions
 
         return groundtruths_, predictions_
+
 
 class RmsePerfMetric(AggrScorePerfMetric):
 
@@ -644,6 +651,7 @@ class RmsePerfMetric(AggrScorePerfMetric):
         rmse = np.sqrt(np.mean(np.power(np.array(groundtruths) - np.array(predictions), 2.0)))
         result = {'score': rmse}
         return result
+
 
 class SrccPerfMetric(AggrScorePerfMetric):
 
@@ -657,6 +665,7 @@ class SrccPerfMetric(AggrScorePerfMetric):
         result = {'score': srcc}
         return result
 
+
 class PccPerfMetric(AggrScorePerfMetric):
 
     TYPE = "PCC"
@@ -668,6 +677,7 @@ class PccPerfMetric(AggrScorePerfMetric):
         pcc, _ = scipy.stats.pearsonr(groundtruths, predictions)
         result = {'score': pcc}
         return result
+
 
 class KendallPerfMetric(AggrScorePerfMetric):
 

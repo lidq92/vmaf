@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright 2016-2017 Netflix, Inc.
+ *  Copyright 2016-2019 Netflix, Inc.
  *
  *     Licensed under the Apache License, Version 2.0 (the "License");
  *     you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 
 #include "common/alloc.h"
 #include "common/file_io.h"
+#include "psnr_tools.h"
 #include "ansnr_options.h"
 #include "ansnr_tools.h"
 
@@ -49,8 +50,7 @@ int compute_ansnr(const float *ref, const float *dis, int w, int h, int ref_stri
     char *data_top;
 
     float *ref_filtr;
-    float *ref_filtd;
-    float *dis_filtd;
+    float *filtd;
 
     float sig, noise;
 
@@ -63,12 +63,12 @@ int compute_ansnr(const float *ref, const float *dis, int w, int h, int ref_stri
 
     int ret = 1;
 
-    if (SIZE_MAX / buf_sz_one < 3)
+    if (SIZE_MAX / buf_sz_one < 2)
     {
         goto fail;
     }
 
-    if (!(data_buf = aligned_malloc(buf_sz_one * 3, MAX_ALIGN)))
+    if (!(data_buf = aligned_malloc(buf_sz_one * 2, MAX_ALIGN)))
     {
         goto fail;
     }
@@ -76,29 +76,33 @@ int compute_ansnr(const float *ref, const float *dis, int w, int h, int ref_stri
     data_top = (char *)data_buf;
 
     ref_filtr = (float *)data_top; data_top += buf_sz_one;
-    ref_filtd = (float *)data_top; data_top += buf_sz_one;
-    dis_filtd = (float *)data_top; data_top += buf_sz_one;
+    filtd = (float *)data_top;
 
 #ifdef ANSNR_OPT_FILTER_1D
     ansnr_filter1d(ansnr_filter1d_ref, ref, ref_filtr, w, h, ref_stride, buf_stride, ansnr_filter1d_ref_width);
-    ansnr_filter1d(ansnr_filter1d_dis, ref, ref_filtd, w, h, ref_stride, buf_stride, ansnr_filter1d_dis_width);
-    ansnr_filter1d(ansnr_filter1d_dis, dis, dis_filtd, w, h, dis_stride, buf_stride, ansnr_filter1d_dis_width);
+    ansnr_filter1d(ansnr_filter1d_dis, dis, filtd, w, h, dis_stride, buf_stride, ansnr_filter1d_dis_width);
 #else
     ansnr_filter2d(ansnr_filter2d_ref, ref, ref_filtr, w, h, ref_stride, buf_stride, ansnr_filter2d_ref_width);
-    ansnr_filter2d(ansnr_filter2d_dis, ref, ref_filtd, w, h, ref_stride, buf_stride, ansnr_filter2d_dis_width);
-    ansnr_filter2d(ansnr_filter2d_dis, dis, dis_filtd, w, h, dis_stride, buf_stride, ansnr_filter2d_dis_width);
+    ansnr_filter2d(ansnr_filter2d_dis, dis, filtd, w, h, dis_stride, buf_stride, ansnr_filter2d_dis_width);
 #endif
 
 #ifdef ANSNR_OPT_DEBUG_DUMP
     write_image("stage/ref_filtr.bin", ref_filtr, w, h, buf_stride, sizeof(float));
-    write_image("stage/ref_filtd.bin", ref_filtd, w, h, buf_stride, sizeof(float));
-    write_image("stage/dis_filtd.bin", dis_filtd, w, h, buf_stride, sizeof(float));
+    write_image("stage/dis_filtd.bin", filtd, w, h, buf_stride, sizeof(float));
 #endif
 
-    ansnr_mse(ref_filtr, dis_filtd, &sig, &noise, w, h, buf_stride, buf_stride);
+    ansnr_mse(ref_filtr, filtd, &sig, &noise, w, h, buf_stride, buf_stride);
 
 #ifdef ANSNR_OPT_NORMALIZE
-    ansnr_mse(ref_filtr, ref_filtd, 0, &noise_min, w, h, buf_stride, buf_stride);
+# ifdef ANSNR_OPT_FILTER_1D
+    ansnr_filter1d(ansnr_filter1d_dis, ref, filtd, w, h, ref_stride, buf_stride, ansnr_filter1d_dis_width);
+# else
+    ansnr_filter2d(ansnr_filter2d_dis, ref, filtd, w, h, ref_stride, buf_stride, ansnr_filter2d_dis_width);
+# endif
+# ifdef ANSNR_OPT_DEBUG_DUMP
+    write_image("stage/ref_filtd.bin", filtd, w, h, buf_stride, sizeof(float));
+# endif
+    ansnr_mse(ref_filtr, filtd, 0, &noise_min, w, h, buf_stride, buf_stride);
     *score = 10.0 * log10(noise / (noise - noise_min));
 #else
     *score = noise==0 ? psnr_max : 10.0 * log10(sig / noise);
@@ -122,6 +126,8 @@ int ansnr(int (*read_frame)(float *ref_data, float *main_data, float *temp_data,
     float *temp_buf = 0;
     size_t data_sz;
     int stride;
+    double peak;
+    double psnr_max;
     int ret = 1;
 
     if (w <= 0 || h <= 0 || (size_t)w > ALIGN_FLOOR(INT_MAX) / sizeof(float))
@@ -133,6 +139,14 @@ int ansnr(int (*read_frame)(float *ref_data, float *main_data, float *temp_data,
 
     if ((size_t)h > SIZE_MAX / stride)
     {
+        goto fail_or_end;
+    }
+
+    ret = psnr_constants(fmt, &peak, &psnr_max);
+    if (ret)
+    {
+        printf("error: unknown format %s.\n", fmt);
+        fflush(stdout);
         goto fail_or_end;
     }
 
@@ -156,13 +170,14 @@ int ansnr(int (*read_frame)(float *ref_data, float *main_data, float *temp_data,
         fflush(stdout);
         goto fail_or_end;
     }
-    
+
     int frm_idx = 0;
     while (1)
     {
         ret = read_frame(ref_buf, dis_buf, temp_buf, stride, user_data);
 
-        if(ret == 1){
+        if (ret == 1)
+        {
             goto fail_or_end;
         }
         if (ret == 2)
@@ -176,23 +191,9 @@ int ansnr(int (*read_frame)(float *ref_data, float *main_data, float *temp_data,
         offset_image(ref_buf, OPT_RANGE_PIXEL_OFFSET, w, h, stride);
         offset_image(dis_buf, OPT_RANGE_PIXEL_OFFSET, w, h, stride);
 
-        if (!strcmp(fmt, "yuv420p") || !strcmp(fmt, "yuv422p") || !strcmp(fmt, "yuv444p"))
-        {
-            // max psnr 60.0 for 8-bit per Ioannis
-            ret = compute_ansnr(ref_buf, dis_buf, w, h, stride, stride, &score, &score_psnr, 255.0, 60.0);
-        }
-        else if (!strcmp(fmt, "yuv420p10le") || !strcmp(fmt, "yuv422p10le") || !strcmp(fmt, "yuv444p10le"))
-        {
-            // 10 bit gets normalized to 8 bit, peak is 1023 / 4.0 = 255.75
-            // max psnr 72.0 for 10-bit per Ioannis
-            ret = compute_ansnr(ref_buf, dis_buf, w, h, stride, stride, &score, &score_psnr, 255.75, 72.0);
-        }
-        else
-        {
-            printf("error: unknown format %s.\n", fmt);
-            fflush(stdout);
-            goto fail_or_end;
-        }
+        // compute
+        ret = compute_ansnr(ref_buf, dis_buf, w, h, stride, stride, &score, &score_psnr, peak, psnr_max);
+
         if (ret)
         {
             printf("error: compute_ansnr failed.\n");
@@ -202,7 +203,6 @@ int ansnr(int (*read_frame)(float *ref_data, float *main_data, float *temp_data,
 
 
         printf("ansnr: %d %f\n", frm_idx, score);
-        fflush(stdout);
         printf("anpsnr: %d %f\n", frm_idx, score_psnr);
         fflush(stdout);
 

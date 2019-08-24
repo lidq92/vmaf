@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright 2016-2017 Netflix, Inc.
+ *  Copyright 2016-2019 Netflix, Inc.
  *
  *     Licensed under the Apache License, Version 2.0 (the "License");
  *     you may not use this file except in compliance with the License.
@@ -19,6 +19,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+
+/**
+ * Note: stride is in terms of bytes
+ */
+void apply_frame_differencing(const float *current_frame, const float *previous_frame, float *frame_difference, int width, int height, int stride)
+{
+    for (int i = 0; i < height; ++i) {
+        for (int j = 0; j < width; ++j) {
+            frame_difference[i * stride + j] = current_frame[i * stride + j] - previous_frame[i * stride + j];
+        }
+    }
+}
 
 /**
  * Note: stride is in terms of bytes

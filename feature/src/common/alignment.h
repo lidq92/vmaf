@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright 2016-2017 Netflix, Inc.
+ *  Copyright 2016-2019 Netflix, Inc.
  *
  *     Licensed under the Apache License, Version 2.0 (the "License");
  *     you may not use this file except in compliance with the License.
@@ -22,22 +22,7 @@
 /* Required for AVX. */
 #define VMAF_ALIGNMENT 32
 
-#ifdef BUILD_O0
-int vmaf_floorn(int n, int m) // O0
-#else
-static inline int vmaf_floorn(int n, int m) // O1, O2, ...
-#endif
-{
-	return n - n % m;
-}
-
-#ifdef BUILD_O0
-int vmaf_ceiln(int n, int m) // O0
-#else
-static inline int vmaf_ceiln(int n, int m) // O1, O2, ...
-#endif
-{
-	return n % m ? n + (m - n % m) : n;
-}
+int vmaf_floorn(int n, int m);
+int vmaf_ceiln(int n, int m);
 
 #endif // ALIGNMENT_H_

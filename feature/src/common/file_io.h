@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright 2016-2017 Netflix, Inc.
+ *  Copyright 2016-2019 Netflix, Inc.
  *
  *     Licensed under the Apache License, Version 2.0 (the "License");
  *     you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 //#define OPT_RANGE_PIXEL_OFFSET 0
 #define OPT_RANGE_PIXEL_OFFSET (-128)
 
+void apply_frame_differencing(const float *current_frame, const float *previous_frame, float *frame_difference, int width, int height, int stride);
 int read_image(FILE *rfile, void *buf, int width, int height, int stride, int elem_size);
 int write_image(FILE *wfile, const void *buf, int width, int height, int stride, int elem_size);
 

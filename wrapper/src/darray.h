@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright 2016-2017 Netflix, Inc.
+ *  Copyright 2016-2019 Netflix, Inc.
  *
  *     Licensed under the Apache License, Version 2.0 (the "License");
  *     you may not use this file except in compliance with the License.
@@ -25,16 +25,23 @@
 extern "C" {
 #endif
 
+#ifdef MULTI_THREADING
+#include "pthread.h"
+#endif
 
 typedef struct
 {
     double *array;
     size_t used;
     size_t size;
+#ifdef MULTI_THREADING
+    pthread_mutex_t mutex;
+#endif
 } DArray;
 
 void init_array(DArray *a, size_t init_size);
 void insert_array(DArray *a, double e);
+void insert_array_at(DArray *a, double e, int pos);
 void free_array(DArray *a);
 double get_at(DArray *a, int pos);
 

@@ -3,7 +3,8 @@ import multiprocessing
 import os
 from time import sleep
 import hashlib
-from vmaf.core.asset import Asset
+
+from vmaf import to_list
 from vmaf.tools.decorator import deprecated
 
 from vmaf.tools.misc import make_parent_dirs_if_nonexist, get_dir_without_last_slash, \
@@ -122,7 +123,7 @@ class Executor(TypeVersionEnabled):
 
             self.results = parallel_map(_run, list_args)
         else:
-            self.results = map(self._run_on_asset, self.assets)
+            self.results = to_list(map(self._run_on_asset, self.assets))
 
     def remove_results(self):
         """
@@ -190,20 +191,20 @@ class Executor(TypeVersionEnabled):
     @staticmethod
     def _get_workfile_yuv_type(asset):
         """ Same as original yuv type, unless it is notyuv; in this case, check
-        the other's (if ref, check dis'; vice versa); if both notyuv, use default"""
+        the other's (if ref, check dis'; vice versa); if both notyuv, use format as set at a higher level"""
 
         # also check the logic in _assert_an_asset. The assumption is:
         # assert (asset.ref_yuv_type == 'notyuv' or asset.dis_yuv_type == 'notyuv') \
         #        or (asset.ref_yuv_type == asset.dis_yuv_type)
 
         if asset.ref_yuv_type == 'notyuv' and asset.dis_yuv_type == 'notyuv':
-            return Asset.DEFAULT_YUV_TYPE
+            return asset.workfile_yuv_type
         elif asset.ref_yuv_type == 'notyuv' and asset.dis_yuv_type != 'notyuv':
             return asset.dis_yuv_type
         elif asset.ref_yuv_type != 'notyuv' and asset.dis_yuv_type == 'notyuv':
             return asset.ref_yuv_type
         else: # neither notyuv
-            assert asset.ref_yuv_type == asset.dis_yuv_type
+            assert asset.ref_yuv_type == asset.dis_yuv_type, "YUV types for ref and dis do not match."
             return asset.ref_yuv_type
 
     def _wait_for_workfiles(self, asset):
@@ -300,7 +301,7 @@ class Executor(TypeVersionEnabled):
 
             if self.logger:
                 self.logger.info("Read {id} log file, get scores...".
-                                 format(type=self.executor_id))
+                                 format(id=self.executor_id))
 
             # collect result from each asset's log file
             result = self._read_result(asset)
@@ -377,7 +378,7 @@ class Executor(TypeVersionEnabled):
     def _get_log_file_path(self, asset):
         return "{workdir}/{executor_id}_{str}".format(
             workdir=asset.workdir, executor_id=self.executor_id,
-            str=hashlib.sha1(str(asset)).hexdigest())
+            str=hashlib.sha1(str(asset).encode("utf-8")).hexdigest())
 
     # ===== workfile =====
 
@@ -405,8 +406,8 @@ class Executor(TypeVersionEnabled):
 
         workfile_yuv_type = self._get_workfile_yuv_type(asset)
 
-        crop_cmd = self._get_crop_cmd(asset)
-        pad_cmd = self._get_pad_cmd(asset)
+        crop_cmd = self._get_ref_crop_cmd(asset)
+        pad_cmd = self._get_ref_pad_cmd(asset)
 
         vframes_cmd, select_cmd = self._get_vframes_cmd(asset, 'ref')
 
@@ -457,8 +458,8 @@ class Executor(TypeVersionEnabled):
 
         workfile_yuv_type = self._get_workfile_yuv_type(asset)
 
-        crop_cmd = self._get_crop_cmd(asset)
-        pad_cmd = self._get_pad_cmd(asset)
+        crop_cmd = self._get_dis_crop_cmd(asset)
+        pad_cmd = self._get_dis_pad_cmd(asset)
 
         vframes_cmd, select_cmd = self._get_vframes_cmd(asset, 'dis')
 
@@ -508,20 +509,30 @@ class Executor(TypeVersionEnabled):
         else:
             assert False, 'ref_or_dis cannot be {}'.format(ref_or_dis)
 
-        if 'icpf' == get_file_name_extension(path) or 'j2c' == get_file_name_extension(path):
+        if 'icpf' == get_file_name_extension(path) or 'j2c' == get_file_name_extension(path) or 'j2k' == get_file_name_extension(path):
             # 2147483647 is INT_MAX if int is 4 bytes
             return "-start_number_range 2147483647"
         else:
             return ""
 
-    def _get_crop_cmd(self, asset):
+    def _get_ref_crop_cmd(self, asset):
         crop_cmd = "crop={},".format(
-            asset.crop_cmd) if asset.crop_cmd is not None else ""
+            asset.ref_crop_cmd) if asset.ref_crop_cmd is not None else ""
         return crop_cmd
 
-    def _get_pad_cmd(self, asset):
+    def _get_ref_pad_cmd(self, asset):
         pad_cmd = "pad={},".format(
-            asset.pad_cmd) if asset.pad_cmd is not None else ""
+            asset.ref_pad_cmd) if asset.ref_pad_cmd is not None else ""
+        return pad_cmd
+
+    def _get_dis_crop_cmd(self, asset):
+        crop_cmd = "crop={},".format(
+            asset.dis_crop_cmd) if asset.dis_crop_cmd is not None else ""
+        return crop_cmd
+
+    def _get_dis_pad_cmd(self, asset):
+        pad_cmd = "pad={},".format(
+            asset.dis_pad_cmd) if asset.dis_pad_cmd is not None else ""
         return pad_cmd
 
     def _get_vframes_cmd(self, asset, ref_or_dis):
@@ -672,10 +683,10 @@ class NorefExecutorMixin(object):
     @staticmethod
     def _get_workfile_yuv_type(asset):
         """ Same as original yuv type, unless it is notyuv; in this case,
-        use default"""
+        use format as set at a higher level"""
 
         if asset.dis_yuv_type == 'notyuv':
-            return Asset.DEFAULT_YUV_TYPE
+            return asset.workfile_yuv_type
         else:
             return asset.dis_yuv_type
 
